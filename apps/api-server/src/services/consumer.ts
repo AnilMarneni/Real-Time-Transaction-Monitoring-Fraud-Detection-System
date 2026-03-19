@@ -3,6 +3,7 @@ import { kafka } from '../config/kafka';
 import { PrismaClient } from '@prisma/client';
 import axios from 'axios';
 import { redis } from '../config/redis';
+import { broadcast } from '../config/websocket';
 
 const prisma = new PrismaClient();
 
@@ -18,105 +19,66 @@ export const runConsumer = async () => {
 
       const transaction = JSON.parse(message.value.toString());
 
-      try {
-        // -------------------------------
-        // 1. Velocity Calculation (Redis)
-        // -------------------------------
-        const key = `user:${transaction.userId}:transactions`;
+      // 🔥 Redis velocity tracking
+      const key = `user:${transaction.userId}:transactions`;
 
-        // Add current transaction timestamp
-        await redis.zadd(key, Date.now(), transaction.id);
+      await redis.zadd(key, Date.now(), transaction.id);
+      await redis.zremrangebyscore(key, 0, Date.now() - 60000);
 
-        // Keep only last 60 seconds
-        await redis.zremrangebyscore(key, 0, Date.now() - 60000);
+      const velocity = await redis.zcard(key);
 
-        // Count transactions in last 60 seconds
-        const velocity = await redis.zcard(key);
+      // 🔥 Call ML service
+      const response = await axios.post('http://localhost:8000/score', {
+        amount: transaction.amount,
+        velocity,
+      });
 
-        // Prevent memory buildup
-        await redis.expire(key, 120);
+      const riskScore = response.data.ml_score;
+      const status = riskScore > 0.5 ? 'flagged' : 'approved';
 
-        // -------------------------------
-        // 2. ML Scoring
-        // -------------------------------
-        let mlScore = 0;
+      // ✅ Store transaction
+      await prisma.transaction.create({
+        data: {
+          ...transaction,
+          riskScore,
+          status,
+        },
+      });
 
-        try {
-          const response = await axios.post('http://localhost:8000/score', {
-            amount: transaction.amount,
-            velocity,
-          });
+      console.log(`✅ Stored transaction ${transaction.id} (${status})`);
 
-          mlScore = response.data.ml_score;
-        } catch (error) {
-          console.error('❌ ML service error:', error);
-          mlScore = 0; // fallback
-        }
+      // 🔥 Emit transaction event
+      broadcast({
+        type: 'transaction:new',
+        data: {
+          id: transaction.id,
+          amount: transaction.amount,
+          status,
+          riskScore,
+        },
+      });
 
-        // -------------------------------
-        // 3. Normalize ML Score
-        // -------------------------------
-        const normalizedML = Math.max(0, Math.min(1, 1 - mlScore));
-
-        // -------------------------------
-        // 4. Rule-Based Scoring
-        // -------------------------------
-        let ruleScore = 0;
-
-        if (transaction.amount > 10000) {
-          ruleScore += 0.4;
-        }
-
-        if (velocity > 5) {
-          ruleScore += 0.3;
-        }
-
-        // -------------------------------
-        // 5. Final Risk Score
-        // -------------------------------
-        const riskScore = 0.6 * normalizedML + 0.4 * ruleScore;
-
-        const status = riskScore > 0.5 ? 'flagged' : 'approved';
-
-        // -------------------------------
-        // 6. Persist Transaction
-        // -------------------------------
-        await prisma.transaction.create({
+      // 🚨 Fraud alert
+      if (status === 'flagged') {
+        await prisma.fraudAlert.create({
           data: {
-            id: transaction.id,
-            userId: transaction.userId,
-            amount: transaction.amount,
-            merchant: transaction.merchant,
-            location: transaction.location,
-            riskScore,
-            status,
+            transactionId: transaction.id,
+            reason: 'ML detected fraud',
+            severity: 'HIGH',
           },
         });
 
-        // -------------------------------
-        // 7. Create Alert (if flagged)
-        // -------------------------------
-        if (status === 'flagged') {
-          await prisma.fraudAlert.create({
-            data: {
-              transactionId: transaction.id,
-              reason: `Risk score ${riskScore.toFixed(2)} exceeded threshold`,
-              severity: 'HIGH',
-            },
-          });
-        }
+        console.log(`🚨 Fraud detected for ${transaction.id}`);
 
-        // -------------------------------
-        // 8. Logging
-        // -------------------------------
-        console.log(`✅ Transaction ${transaction.id}`);
-        console.log(
-          `Amount: ${transaction.amount} | Velocity: ${velocity} | ML: ${mlScore.toFixed(
-            3
-          )} | Final: ${riskScore.toFixed(3)} | Status: ${status}`
-        );
-      } catch (error) {
-        console.error('❌ Consumer processing error:', error);
+        // 🔥 Emit fraud alert event
+        broadcast({
+          type: 'alert:fraud',
+          data: {
+            transactionId: transaction.id,
+            riskScore,
+            message: 'Fraud detected',
+          },
+        });
       }
     },
   });
