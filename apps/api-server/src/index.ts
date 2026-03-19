@@ -1,31 +1,50 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import http from 'http';
+
 import { producer } from './config/kafka';
-import transactionRoutes from './routes/transaction.routes'; // 👈 ADD THIS
 import { runConsumer } from './services/consumer';
+import transactionRoutes from './routes/transaction.routes';
+import { initWebSocket } from './config/websocket';
 
 dotenv.config();
 
 const app = express();
 app.use(express.json());
 
-// ✅ Register routes HERE
+// ✅ Routes
 app.use('/api/transactions', transactionRoutes);
 
-// health route
+// ✅ Health check
 app.get('/health', (_, res) => {
   res.send('API running');
 });
 
 const PORT = process.env.PORT || 4000;
 
-async function start() {
-  await producer.connect();
-  await runConsumer(); // 👈 ADD THIS
+// 🔥 Create HTTP server
+const server = http.createServer(app);
 
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+// 🔥 Attach WebSocket
+initWebSocket(server);
+
+// 🔥 Start everything
+async function start() {
+  try {
+    // Kafka producer
+    await producer.connect();
+
+    // Kafka consumer
+    await runConsumer();
+
+    // Start server
+    server.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('❌ Error starting server:', error);
+    process.exit(1);
+  }
 }
 
 start();
