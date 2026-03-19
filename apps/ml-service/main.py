@@ -1,7 +1,10 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+from model import load_model, predict
 
 app = FastAPI()
+
+model = load_model()
 
 
 class TransactionInput(BaseModel):
@@ -16,13 +19,9 @@ def health():
 
 @app.post("/score")
 def score_transaction(data: TransactionInput):
-    # 🔥 simple mock ML logic
-    score = 0.0
+    features = [data.amount, data.velocity]
 
-    if data.amount > 10000:
-        score += 0.7
-    if data.velocity > 2:
-        score += 0.3
+    score = predict(model, features)
 
     return {
         "ml_score": score
