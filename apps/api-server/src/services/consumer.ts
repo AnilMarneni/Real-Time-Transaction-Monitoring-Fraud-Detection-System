@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { kafka } from '../config/kafka';
 import { PrismaClient } from '@prisma/client';
+import axios from 'axios';
 
 const prisma = new PrismaClient(); // ✅ works perfectly in v6
 
@@ -16,13 +17,15 @@ export const runConsumer = async () => {
 
       const transaction = JSON.parse(message.value.toString());
 
-      let riskScore = 0;
+      // 🔥 Call ML service
+      const response = await axios.post('http://localhost:8000/score', {
+        amount: transaction.amount,
+        velocity: 1, // we’ll improve later
+      });
 
-      if (transaction.amount > 10000) {
-        riskScore += 0.5;
-      }
+      const riskScore = response.data.ml_score;
 
-      const status = riskScore > 0.4 ? 'flagged' : 'approved';
+      const status = riskScore > 0.5 ? 'flagged' : 'approved';
 
       await prisma.transaction.create({
         data: {
@@ -43,6 +46,7 @@ export const runConsumer = async () => {
       }
 
       console.log(`✅ Stored transaction ${transaction.id} (${status})`);
+      console.log("ML SCORE:", riskScore);
     },
   });
 };
