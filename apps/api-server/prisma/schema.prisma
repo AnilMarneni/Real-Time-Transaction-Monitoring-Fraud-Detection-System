@@ -1,0 +1,26 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Transaction {
+  id         String   @id @default(uuid())
+  userId     String
+  amount     Float
+  merchant   String
+  location   String
+  riskScore  Float
+  status     String
+  createdAt  DateTime @default(now())
+}
+
+model FraudAlert {
+  id            String   @id @default(uuid())
+  transactionId String
+  reason        String
+  severity      String
+  createdAt     DateTime @default(now())
+}
