@@ -34,7 +34,7 @@ export const runConsumer = async () => {
       });
 
       const riskScore = response.data.ml_score;
-      const status = riskScore > 0.5 ? 'flagged' : 'approved';
+      const status = riskScore < 0 ? 'flagged' : 'approved';
 
       // ✅ Store transaction
       await prisma.transaction.create({
