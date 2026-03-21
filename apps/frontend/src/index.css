@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 @theme {
-  --color-dark-bg: #111827;
-  --color-dark-card: #1F2937;
-  --color-dark-border: #374151;
+  --color-dark-bg: #0F1626;
+  --color-dark-card: #1E293B;
+  --color-dark-border: #334155;
   --color-brand-blue: #3B82F6;
   --color-brand-red: #EF4444;
   --color-brand-green: #10B981;

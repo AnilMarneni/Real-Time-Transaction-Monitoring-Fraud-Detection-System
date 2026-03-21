@@ -1,21 +1,12 @@
-import { Search, Bell, LogOut, User } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { ChevronDown, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-
-const routeNames: Record<string, string> = {
-  '/': 'DASHBOARD',
-  '/transactions': 'LIVE TRANSACTIONS',
-  '/alerts': 'FRAUD ALERTS',
-  '/analytics': 'ANALYTICS',
-  '/rules': 'RULES ENGINE',
-  '/settings': 'SETTINGS',
-};
+import { useState } from 'react';
 
 export function Topbar() {
-  const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
-  const title = routeNames[location.pathname] || 'DASHBOARD';
+  const [showDropdown, setShowDropdown] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -23,38 +14,37 @@ export function Topbar() {
   };
 
   return (
-    <header className="h-20 flex items-center justify-between px-8 bg-[#121620] sticky top-0 z-10">
-      <h1 className="text-xl font-semibold text-white tracking-wide uppercase">
-        {title}
-      </h1>
-
-      <div className="flex items-center gap-4">
-        <div className="relative">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search"
-            className="bg-dark-card border border-dark-border rounded-lg pl-10 pr-4 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-blue/50 w-64 transition-colors"
-          />
-        </div>
-
-        <button className="w-10 h-10 rounded-lg bg-dark-card border border-dark-border flex items-center justify-center text-gray-400 hover:text-white hover:bg-brand-blue/10 transition-colors relative">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-brand-blue outline outline-2 outline-dark-card" />
-        </button>
-
-        <div className="flex items-center gap-3 px-3 py-2 bg-dark-card border border-dark-border rounded-lg">
-          <User className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-300">{user?.username || 'User'}</span>
-        </div>
-
+    <header className="h-16 flex items-center justify-end px-8 bg-dark-bg sticky top-0 z-10 border-b border-dark-border/0">
+      <div className="relative">
         <button 
-          onClick={handleLogout}
-          className="w-10 h-10 rounded-lg bg-dark-card border border-dark-border flex items-center justify-center text-gray-400 hover:text-white hover:bg-brand-blue/10 transition-colors"
-          title="Logout"
+          onClick={() => setShowDropdown(!showDropdown)}
+          className="flex items-center gap-2 hover:bg-dark-card/50 p-2 rounded-lg transition-colors"
         >
-          <LogOut className="w-5 h-5" />
+          <div className="w-8 h-8 rounded-full bg-dark-card border border-dark-border overflow-hidden">
+            <img
+              src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex&backgroundColor=1F2937"
+              alt="User"
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <ChevronDown className="w-4 h-4 text-gray-400" />
         </button>
+
+        {showDropdown && (
+          <div className="absolute right-0 mt-2 w-48 bg-dark-card border border-dark-border rounded-lg shadow-lg py-1">
+            <div className="px-4 py-2 border-b border-dark-border">
+              <p className="text-sm font-medium text-white">{user?.username || 'Joran Smith'}</p>
+              <p className="text-xs text-gray-400 truncate">{user?.email || 'joran@guardpoint.com'}</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="w-full text-left px-4 py-2 text-sm text-brand-red hover:bg-dark-bg transition-colors flex items-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );
