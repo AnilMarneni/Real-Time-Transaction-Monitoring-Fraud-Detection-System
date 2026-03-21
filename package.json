@@ -13,6 +13,21 @@
     "typescript": "^5.9.3"
   },
   "scripts": {
-    "dev": "ts-node-dev src/index.ts"
+    "dev": "pnpm --filter \"*\" dev",
+    "build": "pnpm --filter \"*\" build",
+    "test": "pnpm --filter \"*\" test",
+    "lint": "pnpm --filter \"*\" lint",
+    "type-check": "pnpm --filter \"*\" type-check",
+    "clean": "pnpm --filter \"*\" clean && rm -rf node_modules",
+    "docker:build": "docker-compose -f docker-compose.prod.yml build",
+    "docker:up": "docker-compose -f docker-compose.prod.yml up -d",
+    "docker:down": "docker-compose -f docker-compose.prod.yml down",
+    "docker:logs": "docker-compose -f docker-compose.prod.yml logs -f",
+    "backup": "cd apps/api-server && ./scripts/backup.sh",
+    "migrate": "cd apps/api-server && npx prisma migrate deploy",
+    "seed": "cd apps/api-server && node create-admin.js",
+    "prod:build": "pnpm build && pnpm docker:build",
+    "prod:deploy": "pnpm prod:build && pnpm docker:up",
+    "health": "curl -f http://localhost:4000/health || exit 1"
   }
 }

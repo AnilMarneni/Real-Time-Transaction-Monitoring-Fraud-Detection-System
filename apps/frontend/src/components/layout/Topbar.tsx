@@ -1,5 +1,6 @@
-import { Search, Bell, LogOut } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { Search, Bell, LogOut, User } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../../stores/authStore';
 
 const routeNames: Record<string, string> = {
   '/': 'DASHBOARD',
@@ -12,7 +13,14 @@ const routeNames: Record<string, string> = {
 
 export function Topbar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuthStore();
   const title = routeNames[location.pathname] || 'DASHBOARD';
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <header className="h-20 flex items-center justify-between px-8 bg-[#121620] sticky top-0 z-10">
@@ -35,7 +43,16 @@ export function Topbar() {
           <span className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-brand-blue outline outline-2 outline-dark-card" />
         </button>
 
-        <button className="w-10 h-10 rounded-lg bg-dark-card border border-dark-border flex items-center justify-center text-gray-400 hover:text-white hover:bg-brand-blue/10 transition-colors">
+        <div className="flex items-center gap-3 px-3 py-2 bg-dark-card border border-dark-border rounded-lg">
+          <User className="w-4 h-4 text-gray-400" />
+          <span className="text-sm text-gray-300">{user?.username || 'User'}</span>
+        </div>
+
+        <button 
+          onClick={handleLogout}
+          className="w-10 h-10 rounded-lg bg-dark-card border border-dark-border flex items-center justify-center text-gray-400 hover:text-white hover:bg-brand-blue/10 transition-colors"
+          title="Logout"
+        >
           <LogOut className="w-5 h-5" />
         </button>
       </div>

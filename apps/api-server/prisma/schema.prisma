@@ -7,6 +7,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  role      Role     @default(VIEWER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("users")
+}
+
 model Transaction {
   id         String   @id @default(uuid())
   userId     String
@@ -16,6 +29,8 @@ model Transaction {
   riskScore  Float
   status     String
   createdAt  DateTime @default(now())
+  
+  @@map("transactions")
 }
 
 model FraudAlert {
@@ -23,5 +38,30 @@ model FraudAlert {
   transactionId String
   reason        String
   severity      String
+  resolved      Boolean  @default(false)
+  resolvedBy    String?
+  resolvedAt    DateTime?
   createdAt     DateTime @default(now())
+  
+  @@map("fraud_alerts")
+}
+
+model FraudRule {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String
+  condition   String   // JSON string representing rule conditions
+  severity    String
+  isActive    Boolean  @default(true)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("fraud_rules")
+}
+
+enum Role {
+  ADMIN
+  ANALYST
+  VIEWER
 }

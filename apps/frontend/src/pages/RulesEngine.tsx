@@ -1,4 +1,4 @@
-import { Plus, Search, Filter, MoreVertical, Check, X } from 'lucide-react';
+import { Plus, Search, Filter, MoreVertical } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useState } from 'react';
 
