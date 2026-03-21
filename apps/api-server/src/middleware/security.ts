@@ -72,14 +72,20 @@ export const sanitizeInput = (req: Request, res: Response, next: NextFunction) =
     return obj;
   };
 
-  if (req.body) {
-    req.body = sanitizeObject(req.body);
+  if (req.body && typeof req.body === 'object') {
+    for (const key of Object.keys(req.body)) {
+      req.body[key] = sanitizeObject(req.body[key]);
+    }
   }
-  if (req.query) {
-    req.query = sanitizeObject(req.query);
+  if (req.query && typeof req.query === 'object') {
+    for (const key of Object.keys(req.query)) {
+      req.query[key] = sanitizeObject(req.query[key]);
+    }
   }
-  if (req.params) {
-    req.params = sanitizeObject(req.params);
+  if (req.params && typeof req.params === 'object') {
+    for (const key of Object.keys(req.params)) {
+      req.params[key] = sanitizeObject(req.params[key]);
+    }
   }
 
   next();

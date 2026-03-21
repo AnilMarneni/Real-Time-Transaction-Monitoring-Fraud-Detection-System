@@ -68,38 +68,8 @@ export default function Analytics() {
       setStats(statsResponse.data);
 
     } catch (err: unknown) {
-      console.warn('Failed to fetch analytics data, gracefully degrading to mock data:', err);
-      setStats({
-        totalFraudPrevented: 1250000,
-        fraudDetectionRate: 92.5,
-        falsePositiveRate: 2.1,
-        averageResponseTime: 45,
-        totalTransactions: 14258,
-        highRiskTransactions: 287,
-        topFraudTypes: [],
-        merchantRiskData: []
-      });
-      setCaptureRateData([
-        { day: 1, prevented: 1000, detected: 1100, total: 50000 },
-        { day: 2, prevented: 1200, detected: 1250, total: 52000 },
-        { day: 3, prevented: 900, detected: 1000, total: 48000 },
-        { day: 4, prevented: 1500, detected: 1600, total: 55000 },
-        { day: 5, prevented: 1300, detected: 1400, total: 53000 },
-        { day: 6, prevented: 1100, detected: 1150, total: 46000 },
-        { day: 7, prevented: 1600, detected: 1650, total: 58000 }
-      ]);
-      setFraudTypeData([
-        { name: 'Account Takeover', value: 450, fill: '#EF4444', percentage: 45 },
-        { name: 'Card Testing', value: 250, fill: '#F59E0B', percentage: 25 },
-        { name: 'Identity Theft', value: 200, fill: '#3B82F6', percentage: 20 },
-        { name: 'Friendly Fraud', value: 100, fill: '#10B981', percentage: 10 }
-      ]);
-      setMerchantCategories([
-        { label: 'Electronics', value: 'High Risk', width: '80%', count: 150, totalAmount: 45000, riskLevel: 'high' },
-        { label: 'Travel', value: 'Medium Risk', width: '45%', count: 320, totalAmount: 120000, riskLevel: 'medium' },
-        { label: 'Digital Goods', value: 'High Risk', width: '60%', count: 210, totalAmount: 18000, riskLevel: 'high' }
-      ]);
-      setError(null);
+      console.error('Failed to fetch analytics data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load analytics data');
     } finally {
       setLoading(false);
     }

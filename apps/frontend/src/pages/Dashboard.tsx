@@ -19,28 +19,30 @@ interface DashboardMetrics {
   };
 }
 
-// Mock data to exactly match the charts in the mockup
-const volumeVsFraudData = Array.from({ length: 24 }).map((_, i) => ({
-  time: `${i + 1}`,
-  valid: Math.floor(Math.random() * 1500) + 1000,
-  blocked: Math.floor(Math.random() * 300) + 50,
-}));
+interface RiskDataPoint {
+  time: string;
+  volume: number;
+  mediumRisk: number;
+  highRisk: number;
+  lowRisk: number;
+}
 
-const incidenceTrendData = Array.from({ length: 7 }).map((_, i) => ({
-  day: `${i + 1} Days`,
-  rate: Math.random() * 0.8 + 0.2,
-}));
-
-const recentTransactionsMock = [
-  { id: '02000...39884551', time: '2023-05-10 10:56:33', amount: 12.50, risk: 'High Risk', status: 'Committed' },
-  { id: '020003A020A3607', time: '2023-05-10 10:55:51', amount: 79.50, risk: 'High Risk', status: 'Transacted' },
-  { id: '0900001013A4826', time: '2023-05-10 10:55:41', amount: 17.00, risk: 'Low risk', status: 'Transacted' },
-  { id: '02000...39884551', time: '2023-05-10 10:55:36', amount: 12.50, risk: 'High Risk', status: 'Committed' },
-  { id: '020003A020A3607', time: '2023-05-10 10:55:33', amount: 79.50, risk: 'High Risk', status: 'Transacted' },
-];
+interface FraudAlert {
+  id: string;
+  sourceIp: string;
+  amount: number;
+  riskScore: number;
+  status: 'pending' | 'reviewing' | 'resolved';
+  createdAt: string;
+  userId?: string;
+  merchant?: string;
+  location?: string;
+}
 
 export default function Dashboard() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [riskData, setRiskData] = useState<RiskDataPoint[]>([]);
+  const [recentAlerts, setRecentAlerts] = useState<FraudAlert[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -50,19 +52,37 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const metricsResponse = await apiService.get('/api/dashboard/metrics');
+      const [metricsResponse, riskResponse, alertsResponse] = await Promise.all([
+        apiService.get('/api/dashboard/metrics'),
+        apiService.get('/api/dashboard/risk-trends'),
+        apiService.get('/api/dashboard/alerts?limit=5&sort=createdAt:desc')
+      ]);
       setMetrics(metricsResponse.data);
+      setRiskData(riskResponse.data);
+      setRecentAlerts(alertsResponse.data);
     } catch (err) {
-      console.error('Failed to fetch dashboard metrics:', err);
+      console.error('Failed to fetch dashboard data:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const formatNumber = (num: number) => num.toLocaleString('en-US');
+  const formatNumber = (num: number) => num?.toLocaleString('en-US');
   const formatCurrencyM = (num: number) => `$${(num / 1000000).toFixed(2)}M`;
+  
+  // Transform dynamic backend data for charts
+  const volumeVsFraudData = riskData.map(d => ({
+    time: d.time,
+    valid: d.lowRisk,
+    blocked: d.mediumRisk + d.highRisk
+  }));
 
-  if (loading) {
+  const incidenceTrendData = riskData.map(d => ({
+    day: d.time,
+    rate: d.volume > 0 ? ((d.mediumRisk + d.highRisk) / d.volume) * 100 : 0
+  }));
+
+  if (loading && !metrics) {
     return (
       <div className="flex items-center justify-center p-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-blue"></div>
@@ -84,10 +104,10 @@ export default function Dashboard() {
               <div className="p-4 border border-dark-border rounded-lg bg-[#121620]">
                 <p className="text-sm text-gray-400 mb-1">Total Transactions (Last 24h)</p>
                 <div className="flex items-baseline gap-2">
-                  <h3 className="text-2xl font-bold text-white">{metrics ? formatNumber(metrics.totalTransactions) : '14,258'}</h3>
+                  <h3 className="text-2xl font-bold text-white">{formatNumber(metrics?.totalTransactions || 0)}</h3>
                 </div>
                 <div className="flex items-center gap-1 mt-1 text-xs text-brand-green">
-                  <span>{metrics?.trends?.transactions?.changePercent ? `+${metrics.trends.transactions.changePercent}%` : '+3.5%'}</span>
+                  <span>{metrics?.trends?.transactions?.changePercent ? `${metrics.trends.transactions.changePercent > 0 ? '+' : ''}${metrics.trends.transactions.changePercent.toFixed(1)}%` : '+0.0%'}</span>
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
                 </div>
               </div>
@@ -96,10 +116,10 @@ export default function Dashboard() {
               <div className="p-4 border border-dark-border rounded-lg bg-[#121620]">
                 <p className="text-sm text-gray-400 mb-1">Fraud Prevented ($)</p>
                 <div className="flex items-baseline gap-2">
-                  <h3 className="text-2xl font-bold text-white">{metrics ? formatCurrencyM(metrics.preventedFraud) : '$1.25M'}</h3>
+                  <h3 className="text-2xl font-bold text-white">{formatCurrencyM(metrics?.preventedFraud || 0)}</h3>
                 </div>
                 <div className="flex items-center gap-1 mt-1 text-xs text-brand-green">
-                  <span>+1.1%</span>
+                  <span>{metrics?.trends?.fraud?.changePercent ? `${metrics.trends.fraud.changePercent > 0 ? '+' : ''}${metrics.trends.fraud.changePercent.toFixed(1)}%` : '+0.0%'}</span>
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
                 </div>
               </div>
@@ -108,11 +128,11 @@ export default function Dashboard() {
               <div className="p-4 border border-dark-border rounded-lg bg-[#121620]">
                 <p className="text-sm text-gray-400 mb-1">Active Alerts</p>
                 <div className="flex items-baseline gap-2">
-                  <h3 className="text-2xl font-bold text-white">287</h3>
+                  <h3 className="text-2xl font-bold text-white">{(metrics?.activeAlerts?.high || 0) + (metrics?.activeAlerts?.medium || 0) + (metrics?.activeAlerts?.critical || 0)}</h3>
                   <span className="text-xs px-1.5 py-0.5 rounded bg-brand-red/20 text-brand-red border border-brand-red/30">High Risk</span>
                 </div>
                 <div className="flex items-center gap-1 mt-1 text-xs text-brand-red">
-                  <span>+12%</span>
+                  <span>Critical: {metrics?.activeAlerts?.critical || 0}</span>
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0v-8m0 8l-8-8-4 4-6-6" /></svg>
                 </div>
               </div>
@@ -158,7 +178,7 @@ export default function Dashboard() {
 
             {/* Chart 2: Fraud Incidence */}
             <div className="bg-dark-card border border-dark-border rounded-xl p-5">
-              <h3 className="text-sm font-medium text-gray-200 mb-4">Fraud Incidence Trend (Weekly)</h3>
+              <h3 className="text-sm font-medium text-gray-200 mb-4">Fraud Incidence Trend (Hourly)</h3>
               <div className="h-48 relative">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={incidenceTrendData} margin={{ top: 10, right: 10, left: -20, bottom: -10 }}>
@@ -172,7 +192,7 @@ export default function Dashboard() {
                         <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
-                    <Line type="monotone" dataKey="rate" stroke="#EF4444" strokeWidth={2} dot={{ r: 3, fill: '#EF4444' }} />
+                    <Line type="monotone" dataKey="rate" stroke="#EF4444" strokeWidth={2} dot={false} />
                     {/* Fake area effect under line */}
                   </LineChart>
                 </ResponsiveContainer>
@@ -195,23 +215,28 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody className="text-gray-300">
-                  {recentTransactionsMock.map((tx, idx) => (
+                  {recentAlerts.map((tx, idx) => (
                     <tr key={idx} className="border-b border-dark-border/50 hover:bg-[#121620] transition-colors">
-                      <td className="py-3 text-brand-blue">{tx.id}</td>
-                      <td className="py-3">{tx.time}</td>
+                      <td className="py-3 text-brand-blue font-mono">{tx.id.substring(0, 16)}...</td>
+                      <td className="py-3">{new Date(tx.createdAt).toLocaleString()}</td>
                       <td className="py-3">${tx.amount.toFixed(2)}</td>
                       <td className="py-3">
                         <span className={`px-2 py-0.5 rounded text-xs ${
-                          tx.risk === 'High Risk' ? 'bg-brand-red text-white' :
-                          tx.risk === 'Low risk' ? 'bg-brand-green/20 text-brand-green border border-brand-green/30' :
+                          tx.riskScore >= 80 ? 'bg-brand-red text-white' :
+                          tx.riskScore <= 30 ? 'bg-brand-green/20 text-brand-green border border-brand-green/30' :
                           'bg-brand-yellow/20 text-brand-yellow border border-brand-yellow/30'
                         }`}>
-                          {tx.risk}
+                          {tx.riskScore >= 80 ? 'High Risk' : tx.riskScore <= 30 ? 'Low Risk' : 'Med Risk'}
                         </span>
                       </td>
-                      <td className="py-3 text-right">{tx.status}</td>
+                      <td className="py-3 text-right capitalize">{tx.status}</td>
                     </tr>
                   ))}
+                  {recentAlerts.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-gray-500">No recent flagged transactions.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -238,24 +263,17 @@ export default function Dashboard() {
           <div>
             <p className="text-gray-400 text-sm mb-3">Quick view of top 3 critical alerts</p>
             <div className="space-y-3">
-              <div className="p-3 border border-dark-border rounded-lg bg-[#121620]">
-                <p className="text-sm font-medium text-white mb-1">
-                  <span className="text-brand-red">1 High Risk:</span> Retail Transacti...
-                </p>
-                <p className="text-xs text-gray-500">Fraud rate | 3 hours ago</p>
-              </div>
-              <div className="p-3 border border-dark-border rounded-lg bg-[#121620]">
-                <p className="text-sm font-medium text-white mb-1">
-                  <span className="text-brand-red">2 High Risk:</span> Transaction Su...
-                </p>
-                <p className="text-xs text-gray-500">Fraud rate | 3 hours ago</p>
-              </div>
-              <div className="p-3 border border-dark-border rounded-lg bg-[#121620]">
-                <p className="text-sm font-medium text-white mb-1">
-                  <span className="text-brand-red">3 High Risk:</span> Transaction Tu...
-                </p>
-                <p className="text-xs text-gray-500">Fraud rate | 3 hours ago</p>
-              </div>
+              {recentAlerts.filter(a => a.riskScore >= 80).slice(0, 3).map((alert, i) => (
+                <div key={i} className="p-3 border border-dark-border rounded-lg bg-[#121620]">
+                  <p className="text-sm font-medium text-white mb-1">
+                    <span className="text-brand-red">{i + 1} High Risk:</span> Transaction {alert.id.substring(0, 4)}...
+                  </p>
+                  <p className="text-xs text-gray-500">{new Date(alert.createdAt).toLocaleTimeString()}</p>
+                </div>
+              ))}
+              {recentAlerts.filter(a => a.riskScore >= 80).length === 0 && (
+                <p className="text-sm text-gray-500">No critical alerts found.</p>
+              )}
             </div>
           </div>
         </div>
