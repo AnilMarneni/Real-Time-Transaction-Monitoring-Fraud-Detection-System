@@ -28,7 +28,7 @@ Real-time fraud detection that stops bad guys in their tracks. Built with modern
 
 ---
 
-## 🏗️ **The Architecture Porn**
+## 🏗️ **The Architecture Overview**
 
 ```mermaid
 graph TB
